@@ -3,7 +3,7 @@
 ####              The Project: Car Crashes               ####
 #############################################################
 # Reading the document:
-crashes <-read.csv("/Users/imanol/Unibertsitateko Apunteak/MASTER KISA/Probabilistic Modelling and Bayesian Network/Project/Car_crash_data_project.csv",header=T,sep=",")
+crashes <-read.csv("Car_crash_data_project.csv",header=T,sep=",")
 
 ####    Preparation and exploration of data    ####
 
