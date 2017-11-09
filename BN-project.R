@@ -1,4 +1,4 @@
-dat <- read.csv(file = "class/master/pm/BN-project/Car_crash_data_project.csv", sep = ",", header = T)
+dat <- read.csv(file = "Car_crash_data_project.csv", sep = ",", header = T)
 
 names(dat)
 # [1] "Month"                 "Year"                  "Week_day"              "Type_day"              "Casualties"           
@@ -43,14 +43,12 @@ for (i in 1:length(dat2006[1,])){
 nNaNCols2006 <- matrix(nNaNCols2006, nrow = 2)
 nNaNCols2006[,order(nNaNCols2006[1,], decreasing = T)]
 
-# remove column 22 due to excessive NA density
 
 nNaNRows2006 <- c()
 for (i in 1:length(dat2006[,1])){
   nNaNRows2006 <- c(nNaNRows2006, sum(is.na(dat2006[i,])), i)
 }
 nNaNRows2006 <- matrix(nNaNRows2006, nrow = 2)
-
 nNaNRows2006[,order(nNaNRows2006[1,], decreasing = T)[1:20]]
 
 # Columns without NAs: 1, 2, 3, 4, 5, 6, 7, 16, 17, 19, 21, 23, 24, 25, 26, 27
