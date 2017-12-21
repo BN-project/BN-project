@@ -56,21 +56,45 @@ nNaNRows2006[,order(nNaNRows2006[1,], decreasing = T)[1:20]]
 
 # Columns without NAs: 1, 2, 3, 4, 5, 6, 7, 16, 17, 19, 21, 23, 24, 25, 26, 27
 # First column to analyze: 18, it has 13 NAs
-library(class)
+library(rpart)
 
-# assign values with a decission tree
-
+# decide values with a decission tree
+# 2006 - 17
 
 dat.test <- dat2006[which(is.na(dat2006[,17])),-17]
 dat.train <- dat2006[which(!(is.na(dat2006[,17]))),]
-
-
-library(rpart)
 
 names(dat.train)
 d.tr <- rpart(Atmosferic_factors~., data = dat.train)
 plot(d.tr, branch=1, margin=0.25, uniform=TRUE)
 text(d.tr, use.n=TRUE, splits=TRUE, pretty=6)
-predict(d.tr, dat.test)
+predict(d.tr, dat.test, "prob")
+predictions <- predict(d.tr, dat.test, "vector")
+predictions
+
+
+
+# 2015  - remove column 21
+
+which(is.na(dat2015[,7]))
+
+
+# Cleaning the data
+
+cdat <- dat[,-22]
+cdat <- cdat[-(which(is.na(cdat[,8]))),]
+
+
+atmNAs <- which(is.na(cdat[,18]))
+
+cdat$Atmosferic_factors[atmNAs] <- levels(cdat[,18])[predictions]
+
+
+cdat2015 <- cdat[which(cdat["Year"] == 2015 ),][,-2]
+cdat2006 <- cdat[which(cdat["Year"] == 2006 ),][,-2]
+
+
+
+
 
 
