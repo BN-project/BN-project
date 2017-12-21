@@ -47,6 +47,14 @@ summary(crashes$Week_day) # Frecuency tables
 plot(crashes$Week_day)
 # Categorical, 7 categories, no NA, no 0 frecuencies
 
+# 4.- Type day
+anyNA(crashes$Type_day) # FALSE
+class(crashes$Type_day) # Factor
+levels(crashes$Type_day) 
+summary(crashes$Type_day) # Frecuency tables
+plot(crashes$Type_day)
+# Categorical, 4 categories, no NA, no 0 frecuencies
+
 # 5.- Casualties (Damnificados)
 anyNA(crashes$Casualties) # FALSE
 class(crashes$Casualties) # Integer, N
@@ -95,7 +103,7 @@ summary(crashes$Lane_width) # Frecuency tables
 plot(crashes$Lane_width)
 # Categorical, 3 categories, NA:42 (All in 2015)(same as Road_width), no 0 frecuencies
 
-# 10.- Hard_shoulder
+# 10.- Hard_shoulder (Arcen)
 anyNA(crashes$Hard_shoulder) # TRUE
 which(is.na(crashes$Hard_shoulder) ==T) # NA values. All of them in 2015 data.
 which(is.na(crashes$Hard_shoulder) ==T)==which(is.na(crashes$Road_width) ==T)
@@ -270,3 +278,92 @@ levels(crashes$Conc_weather)
 summary(crashes$Conc_weather) # Frecuency tables
 plot(crashes$Conc_weather)
 # Categorical, 2 categories, no NA, no 0 frecuencies
+
+
+#### Separate the samples of 2006 and 2015
+crashes2015 <- crashes[which(crashes["Year"] == '2015' ),][,-2]
+crashes2006 <- crashes[which(crashes["Year"] == '2006' ),][,-2]
+
+#### Estimation of values for NA of 2006
+
+# 1 Option. Decision tree and estimate values
+library(rpart)
+
+crashes2006.test <- crashes2006[which(is.na(crashes2006[,17])),-17]
+crashes2006.train <- crashes2006[which(!(is.na(crashes2006[,17]))),]
+
+names(crashes2006.train)
+d.tr <- rpart(Atmosferic_factors~., data = crashes2006.train)
+plot(d.tr, branch=0, margin=0.25, uniform=TRUE)
+text(d.tr, use.n=TRUE, splits=TRUE, pretty=6)
+predict(d.tr, crashes2006.test)
+# We'll take the highest probability (Minimun max value > .7)
+predictions <- predict(d.tr, crashes2006.test, "vector")
+atmNAs2006 <- which(is.na(crashes2006[,17]))
+crashes2006$Atmosferic_factors[atmNAs2006] <- levels(crashes2[,18])[predictions]
+
+
+# We've tried estimate the values using all the data except from variable Traffic and "the 42 NA instances".
+# Just one significant change. We've decided to use the 2006 prediction.
+
+#### Estimation of values for NA of 2015
+
+# 1 option: Remove Traffic + Remove NA instances
+
+crashes2015 <- crashes2015[,-21]
+#names(crashes2015)
+crashes2015 <- crashes2015[-(which(is.na(crashes2015$Danger_signs) ==T)),]
+# Verification: anyNA(crashes2015)
+
+
+## Creation of crashes2 (combine the estimation values 1 of 2006 and 2015) to see
+# the relation between variables.
+crashes2 <-crashes[,-22]
+crashes2 <- crashes2[-(which(is.na(crashes2$Danger_signs) ==T)),]
+
+predictions <- predict(d.tr, crashes2006.test, "vector")
+atmNAs <- which(is.na(crashes2[,18]))
+crashes2$Atmosferic_factors[atmNAs] <- levels(crashes2[,18])[predictions]
+
+#### Converting numeric attributes to categorical
+# 1. More than 5 casualties -> new category
+crashes2[which(crashes2[,5]>5),5]="more_than_5"
+crashes2[,5] <-as.factor(crashes2[,5])
+
+# 2. More than 2 vehicles -> new category
+crashes2[which(crashes2[,6]>2),6]="more_than_2"
+crashes2[,6] <-as.factor(crashes2[,6])
+table(crashes2[,6])
+
+# 3. Lanes as a factor
+crashes2$Lanes <- as.factor(crashes2$Lanes)
+
+# Subsample of datas:
+# crashes2015 <- crashes2[which(crashes2["Year"] == '2015' ),][,-2]
+# crashes2006 <- crashes2[which(crashes2["Year"] == '2006' ),][,-2]
+
+# Chi-square matrix p-value
+chisqmatrix <- function(x) {
+  names = colnames(x);  num = length(names)
+  m = matrix(nrow=num,ncol=num,dimnames=list(names,names))
+  for (i in 1:(num-1)) {
+    for (j in (i+1):num) { 
+      m[i,j] = chisq.test(x[,i],x[,j])$p.value
+    }
+  }
+  return (m)
+}
+
+mat = chisqmatrix(crashes2)
+mat
+
+table(crashes2$Type_day,crashes2$Week_day)
+table(crashes2$Surface,crashes2$Atmosferic_factors)
+table(crashes2$Num_vehicles,crashes2$Casualties)
+table(crashes2$Hard_shoulder,crashes2$Paved_hard_shoulder)
+table(crashes2$Edge_landmarks,crashes2$Reflectors)
+table(crashes2$Atmosferic_factors,crashes2$Conc_weather)
+
+# Remove Week_day, Atmosferic_factors, Num_vehicles, Paved_hard_shoulder
+
+
