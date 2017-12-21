@@ -7,7 +7,10 @@ names(dat)
 # [16] "Surface"               "Luminosity"            "Atmosferic_factors"    "Limited_visibility"    "Danger_signs"         
 # [21] "Crash_type"            "Traffic"               "Conc_distraction"      "Conc_alcohol_durgs"    "Conc_speed"           
 # [26] "Conc_tyred_sleepy_ill" "Conc_weather"         
+dat[,2] <- as.factor(dat[,2])
 dat[,3] <- as.factor(dat[,3])
+#dat[,5] <- as.factor(dat[,5])
+#dat[,6] <- as.factor(dat[,6])
 dat[,7] <- as.factor(dat[,7])
 
 
@@ -55,30 +58,19 @@ nNaNRows2006[,order(nNaNRows2006[1,], decreasing = T)[1:20]]
 # First column to analyze: 18, it has 13 NAs
 library(class)
 
-# assign values with knn
+# assign values with a decission tree
 
 
 dat.test <- dat2006[which(is.na(dat2006[,17])),-17]
 dat.train <- dat2006[which(!(is.na(dat2006[,17]))),]
 
 
-require(tree)
+library(rpart)
 
 names(dat.train)
-d.tr <- tree(Atmosferic_factors~., data = dat.train)
+d.tr <- rpart(Atmosferic_factors~., data = dat.train)
+plot(d.tr, branch=1, margin=0.25, uniform=TRUE)
+text(d.tr, use.n=TRUE, splits=TRUE, pretty=6)
 predict(d.tr, dat.test)
-
-require(bnlearn)
-
-# Cualitative dataset reduction.
-dat.test.cual = dat.test[,-5][,-4]
-dat.train.cual = dat.train[,-5][,-4]
-
-tan = tree.bayes(x=dat.train.cual, "Atmosferic_factors")
-
-fitted = bn.fit(tan, dat.train.cual, method = "bayes")
-predict(fitted, dat.test.cual)
-
-
 
 
