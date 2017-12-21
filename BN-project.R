@@ -11,9 +11,7 @@ dat[,2] <- as.factor(dat[,2])
 dat[,3] <- as.factor(dat[,3])
 #dat[,5] <- as.factor(dat[,5])
 #dat[,6] <- as.factor(dat[,6])
-dat[,7] <- as.factor(dat[,7])
-
-
+#dat[,7] <- as.factor(dat[,7])
 
 dat2015 <- dat[which(dat["Year"] == 2015 ),][,-2]
 dat2006 <- dat[which(dat["Year"] == 2006 ),][,-2]
@@ -66,7 +64,7 @@ dat.train <- dat2006[which(!(is.na(dat2006[,17]))),]
 
 names(dat.train)
 d.tr <- rpart(Atmosferic_factors~., data = dat.train)
-plot(d.tr, branch=1, margin=0.25, uniform=TRUE)
+plot(d.tr, branch=0, margin=0.25, uniform=TRUE)
 text(d.tr, use.n=TRUE, splits=TRUE, pretty=6)
 predict(d.tr, dat.test, "prob")
 predictions <- predict(d.tr, dat.test, "vector")
@@ -90,10 +88,43 @@ atmNAs <- which(is.na(cdat[,18]))
 cdat$Atmosferic_factors[atmNAs] <- levels(cdat[,18])[predictions]
 
 
+# Integer interpretation
+cdat[which(cdat[,5]>5), 5] = "more_than_5"
+cdat[,5] <- as.factor(cdat[,5])
+
+cdat[which(cdat[,6]>2), 6] = "more_than_2"
+cdat[,6] <- as.factor(cdat[,6])
+
+cdat[,7] <- as.factor(cdat[,7])
+
+
+
+
 cdat2015 <- cdat[which(cdat["Year"] == 2015 ),][,-2]
 cdat2006 <- cdat[which(cdat["Year"] == 2006 ),][,-2]
 
 
+for (i in 1: length(cdat[1,])){
+  print(class(cdat[,i]))
+}
+
+
+chisqmat <- function(mat) {
+  ncol = length(mat[1,]) 
+  ret <- matrix(nrow = ncol, ncol = ncol)
+  for (i in 1:ncol){
+    for (j in 1:ncol) {
+      ret[i, j]  <- chisq.test(mat[,i], mat[,j], simulate.p.value = T)$p.value
+    }
+  }
+  return(ret)
+}
+
+mm <- chisqmat(cdat)
+
+sum(mm[16,])
+sum(mm[18,])
+sum(mm[26,])
 
 
 
