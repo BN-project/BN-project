@@ -365,5 +365,91 @@ table(crashes2$Edge_landmarks,crashes2$Reflectors)
 table(crashes2$Atmosferic_factors,crashes2$Conc_weather)
 
 # Remove Week_day, Atmosferic_factors, Num_vehicles, Paved_hard_shoulder
+crashes2 <- crashes2[,-c(3,6,11,18)]
+
+## Finally, we separate data from 2006 and 2015
+crashes2.2006 <- crashes2[which(crashes2["Year"] == '2006' ),][,-2]
+crashes2.2015 <- crashes2[which(crashes2["Year"] == '2015' ),][,-2]
+
+## Modelling the data
+library(bnlearn)
+library(Rgraphviz)
+library(ggplot2)
+
+## 2006 data
+# Sampling data
+set.seed(2044) #2044
+rs <- sample(1:431, 300, replace=F)
+rs <- sample(1:431, 300, replace=F)
+# SAMPLE ERROR MADE
+crashes2.2006.train <- crashes2.2006[rs,]
+crashes2.2006.test <- crashes2.2006[-rs,]
+
+# Modelling (always optimized)
+# 1. gs
+model2006.gs <- gs(crashes2.2006.train)
+# 2. fast.iamb
+model2006.iamb <-fast.iamb(crashes2.2006.train)
+# 3. mmpc
+model2006.mmpc <- mmpc(crashes2.2006.train)
+
+# 4. hc 10/7
+model2006.hc.bic <- hc(crashes2.2006.train,restart = 10, perturb = 7)
+model2006.hc.k2 <- hc(crashes2.2006.train,restart = 10, perturb = 7,score = "k2")
+model2006.hc.bde <- hc(crashes2.2006.train,restart = 10, perturb = 7,score = "bde")
+
+bnlearn::score(x=model2006.hc.bic, data=crashes2.2006.train, type="bic") # -5186.515
+bnlearn::score(x=model2006.hc.k2, data=crashes2.2006.train, type="bic") # -12191.21
+bnlearn::score(x=model2006.hc.bde, data=crashes2.2006.train, type="bic") # -5226.42
+
+# We will use model2006.hc.bic
+
+# 5. tabu
+model2006.tabu.bic <- tabu(crashes2.2006.train)
+model2006.tabu.k2 <- tabu(crashes2.2006.train,score = "k2")
+model2006.tabu.bde <- tabu(crashes2.2006.train,score = "bde")
+
+bnlearn::score(x=model2006.tabu.bic, data=crashes2.2006.train, type="bic") # -5186.48
+bnlearn::score(x=model2006.tabu.k2, data=crashes2.2006.train, type="bic") # -33225.62
+bnlearn::score(x=model2006.tabu.bde, data=crashes2.2006.train, type="bic") # -5229.376
+
+# We will use model2006.tabu.bic
+
+# Plotting
+graphviz.plot(x=model2006.gs, layout="dot", shape="ellipse")
+graphviz.plot(x=model2006.iamb, layout="dot", shape="ellipse")
+graphviz.plot(x=model2006.mmpc, layout="dot", shape="ellipse")
+graphviz.plot(x=model2006.hc.bic, layout="dot", shape="ellipse")
+graphviz.plot(x=model2006.tabu.bic, layout="dot", shape="ellipse")
+
+# Setting directions
+model2006.gs.2 <- set.arc(model2006.gs,from = "Surface",to = "Conc_weather")
+# -- Significance choice
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Casualties",to = "Conc_distraction")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Lanes",to = "Road_width")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Reflectors",to = "Edge_landmarks")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Reflectors",to = "Security_barriers")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Edge_landmarks",to = "Security_barriers")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Edge_landmarks",to = "Aditional_panels")
+model2006.gs.2 <- set.arc(model2006.gs.2,from = "Security_barriers",to = "Month")
+
+graphviz.plot(x=model2006.gs.2, layout="dot", shape="ellipse")
 
 
+# Probability estimation
+model2006.gs.2.fitted <- bn.fit(model2006.gs.2, data=crashes2.2006.train)
+#model2006.iamb.fitted <- bn.fit(model2006.iamb, data=crashes2.2006.train) NO
+#model2006.mmpc.fitted <- bn.fit(model2006.mmpc, data=crashes2.2006.train) NO
+
+model2006.hc.bic.fitted <- bn.fit(model2006.hc.bic, data=crashes2.2006.train)
+model2006.tabu.bic.fitted <- bn.fit(model2006.tabu.bic, data=crashes2.2006.train)
+
+## 
+
+#eval_struct <- function(bn, train, test){
+#  gener <- stats::logLik(bn,test)/(dim(test)[2]*dim(test)[1])
+#  fit <- stats::logLik(bn,train)/(dim(test)[2]*dim(train)[1])
+#  return(c(gener, fit))
+#}
+
+#plotmodel1 <-eval_struct(model2006.gs.2.fitted,crashes2.2006.train,crashes2.2006.test)
