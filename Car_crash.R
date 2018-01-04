@@ -441,15 +441,15 @@ crashes2[which(crashes2[,7]>2),7]="more_than_2"
 crashes2[,7] <-as.factor(crashes2[,7])
 
 # Modification of the data observing the first attempt of the model
+
 # 1. Extreme category surface created -> new category
 library(car)
-
 crashes2$Surface <- recode(crashes2$Surface,"'Dry'='Dry';'Wet'='Wet';else='Extreme'")
 # 2. Surface: grouping Dusk categories -> new category (diff between 2006 and 2015)
 crashes2$Luminosity <- recode(crashes2$Luminosity,"'Artificial_enough'='Artificial_enough';'Artificial_not_enough'='Artificial_not_enough';'Daylight'='Daylight';'No_light'='No_light';else='Dusk'")
 
 
-# Subsample of datas:
+# Subsample of data:
 # crashes2015 <- crashes2[which(crashes2["Year"] == '2015' ),][,-2]
 # crashes2006 <- crashes2[which(crashes2["Year"] == '2006' ),][,-2]
 
@@ -492,10 +492,11 @@ library(ggplot2)
 # Sampling data
 set.seed(937) #937
 rs <- sample(1:431, 300, replace=F)
-# SAMPLE ERROR MADE
 crashes2.2006.train <- crashes2.2006[rs,]
 crashes2.2006.test <- crashes2.2006[-rs,]
 
+## 2015 data
+# Sampling data
 rs2 <- sample(1:211, 150, replace=F)
 crashes2.2015.train <- crashes2.2015[rs2,]
 crashes2.2015.test <- crashes2.2015[-rs2,]
@@ -599,3 +600,103 @@ eval_struct <- function(bn, train, test){
 
 plotmodel1 <-eval_struct(model2006.hc.bde.fitted,crashes2.2006.train,crashes2.2006.test)
 plotmodel1
+
+
+#### Inference
+library(gRain)
+
+model2006.hc.bde.grain <- grain(as(amat(model2006.hc.bde), "graphNEL"), data=crashes2.2006.train, smooth=1/dim(crashes2.2006.train)[1])
+plot(model2006.hc.bde.grain)
+# Compilation
+model2006.hc.bde.grain.moral <- moralize(model2006.hc.bde.grain$dag)
+model2006.hc.bde.grain.triang <- triangulate(model2006.hc.bde.grain.moral)
+# List of cliques
+rip(model2006.hc.bde.grain.triang)
+plot(rip(model2006.hc.bde.grain.triang))
+
+# OR
+model2006.hc.bde.compiled <- compile(model2006.hc.bde.grain)
+summary(model2006.hc.bde.compiled)
+
+# Propagate
+model2006.hc.bde.propagated <- propagate(model2006.hc.bde.compiled)
+summary(model2006.hc.bde.propagated)
+
+model2015.hc.bde.grain <- grain(as(amat(model2015.hc.bde), "graphNEL"), data=crashes2.2015.train,smooth=1/dim(crashes2.2015.train)[1])
+model2015.hc.bde.compiled <- compile(model2015.hc.bde.grain)
+model2015.hc.bde.propagated <- propagate(model2015.hc.bde.compiled)
+
+
+### Probability estimation
+# 1)
+querygrain(model2006.hc.bde.propagated , nodes="Conc_alcohol_durgs", type="marginal")
+#          N          Y 
+# 0.95997981 0.04002019 
+querygrain(model2015.hc.bde.propagated , nodes="Conc_alcohol_durgs", type="marginal")
+#          N          Y 
+# 0.97319288 0.02680712 
+
+# 2)
+querygrain(model2006.hc.bde.propagated , nodes="Limited_visibility", type="marginal")
+#         N         Y 
+# 0.2333501 0.7666499 
+querygrain(model2015.hc.bde.propagated , nodes="Limited_visibility", type="marginal")
+#         N         Y 
+# 0.5924582 0.4075418
+
+# With reflectors?
+model2006.hc.bde.propagated.ev2 <- setEvidence(model2006.hc.bde.propagated,nodes="Reflectors",states="Y", propagate=TRUE)
+querygrain(model2006.hc.bde.propagated.ev2 , nodes="Limited_visibility", type="marginal")
+#         N         Y 
+# 0.3046502 0.6953498 
+# --> True
+
+model2015.hc.bde.propagated.ev2 <- setEvidence(model2015.hc.bde.propagated,nodes="Reflectors",states="Y", propagate=TRUE)
+querygrain(model2015.hc.bde.propagated.ev2 , nodes="Limited_visibility", type="marginal")
+#         N         Y 
+# 0.5924582 0.4075418 The same (nodes no conected)
+
+# 3)
+model2006.hc.bde.propagated.ev3 <- setEvidence(model2006.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("Y","Y"), propagate=TRUE)
+querygrain(model2006.hc.bde.propagated.ev3 , nodes="Num_vehicles", type="marginal")
+#           1           2 more_than_2 
+#   0.1792610   0.6980846   0.1226544 
+
+model2006.hc.bde.propagated.ev4 <- setEvidence(model2006.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("N","N"), propagate=TRUE)
+querygrain(model2006.hc.bde.propagated.ev4 , nodes="Num_vehicles", type="marginal")
+#           1           2 more_than_2 
+#   0.5566936   0.3195912   0.1237152 
+# Single vehicle accidents increase
+
+
+model2015.hc.bde.propagated.ev3 <- setEvidence(model2015.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("Y","Y"), propagate=TRUE)
+querygrain(model2015.hc.bde.propagated.ev3 , nodes="Num_vehicles", type="marginal")
+#           1           2 more_than_2 
+#   0.4561207   0.4265556   0.1173237 
+
+model2015.hc.bde.propagated.ev4 <- setEvidence(model2015.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("N","N"), propagate=TRUE)
+querygrain(model2015.hc.bde.propagated.ev4 , nodes="Num_vehicles", type="marginal")
+#           1           2 more_than_2 
+#   0.5393078   0.3587505   0.1019417 
+#  Single vehicle accidents increase
+
+# 4)
+querygrain(model2006.hc.bde.propagated , nodes="Surface", type="marginal")
+#         Dry    Extreme        Wet 
+#  0.58332044 0.04335095 0.37332861
+querygrain(model2015.hc.bde.propagated , nodes="Surface", type="marginal")
+#        Dry    Extreme        Wet 
+# 0.52657241 0.06011447 0.41331312 
+
+# 5)
+querygrain(model2006.hc.bde.propagated , nodes="Month", type="marginal")
+#         Apr        Aug        Dec        Feb        Jan        Jul 
+#  0.05000444 0.06333600 0.07666756 0.09333200 0.07333467 0.08000044 
+#         Jun        Mar        May        Nov        Oct        Sep 
+#  0.11666222 0.08999911 0.06666889 0.10999644 0.09999778 0.08000044 
+querygrain(model2015.hc.bde.propagated , nodes="Month", type="marginal")
+#         Apr        Aug        Dec        Feb        Jan        Jul
+#  0.07333866 0.11331734 0.08666489 0.05334932 0.06667555 0.13996979
+#         Jun        Mar        May        Nov        Oct        Sep 
+#  0.07333866 0.11331734 0.06667555 0.06667555 0.08666489 0.06001244 
+
