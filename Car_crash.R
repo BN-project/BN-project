@@ -606,13 +606,13 @@ eval_struct <- function(bn, train, test){
 
 set.seed(937) #937
 plotmodel1 <-eval_struct(model2006.hc.bic,crashes2.2006.train,crashes2.2006.test)
-plot(log10(sizes), plotmodel1[,1], main="Generalisation", 
+plot(log10(sizes), plotmodel1[,1], main="Generalisation 2006", 
      ylab="LL/nN", xlab="log(Size)", type="l", col="blue", ylim=c(min(plotmodel1), max(plotmodel1)))
 lines(log10(sizes),  plotmodel1[, 2], col="red")
 
 sizes <- round(exp(seq(1, log(150), (log(150) - 1) / 20)))
 plotmodel2 <-eval_struct(model2015.hc.bic,crashes2.2015.train,crashes2.2015.test)
-plot(log10(sizes), plotmodel2[,1], main="Generalisation", 
+plot(log10(sizes), plotmodel2[,1], main="Generalisation 2015", 
      ylab="LL/nN", xlab="log(Size)", type="l", col="blue", ylim=c(min(plotmodel2), max(plotmodel2)))
 lines(log10(sizes),  plotmodel2[, 2], col="red")
 
