@@ -77,6 +77,14 @@ summary(crashes$Casualties) # Summary of statisticals
 #   1.000   1.000   2.000   2.114   2.250  33.000 
 boxplot(crashes$Casualties)
 # Integer ordinal, Values: 1-10,20,33, no NA
+# Poisson (lambda): Lambda estimation
+f<-function(lambda) {return(sum(log10(dpois(crashes$Casualties, lambda))))}
+lambda.values <- seq(1, 10, 0.1)
+loglikelihood <- sapply(lambda.values , FUN=f)
+df <- data.frame(Lambda=lambda.values , Loglikelihood=loglikelihood)
+ggplot(df, aes(x=Lambda, y=Loglikelihood)) + geom_line(size=1.1) + labs(x=expression(lambda),
+                                                                        y="Log-likelihood") + geom_vline(xintercept=2.1)
+# df$Lambda[which(df$Loglikelihood ==max(df$Loglikelihood))] --> 2.1
 
 # 6.- Num_vehicles
 anyNA(crashes$Num_vehicles) # FALSE
@@ -90,6 +98,13 @@ summary(crashes$Num_vehicles) # Summary of statisticals
 # 1.000   1.000   2.000   1.652   2.000   6.000 
 boxplot(crashes$Num_vehicles)
 # Integer ordinal, Values: 1-6, no NA
+# Poisson (lambda): Lambda estimation
+f<-function(lambda) {return(sum(log10(dpois(crashes$Num_vehicles, lambda))))} lambda.values <- seq(1, 10, 0.1)
+loglikelihood <- sapply(lambda.values , FUN=f)
+df <- data.frame(Lambda=lambda.values , Loglikelihood=loglikelihood)
+ggplot(df, aes(x=Lambda, y=Loglikelihood)) + geom_line(size=1.1) + labs(x=expression(lambda),
+                                                                        y="Log-likelihood") + geom_vline(xintercept=1.7)
+# df$Lambda[which(df$Loglikelihood ==max(df$Loglikelihood))] --> 1.7
 
 # 7.- Lanes
 anyNA(crashes$Lanes) # FALSE
@@ -387,7 +402,7 @@ crashes2006 <- crashes[which(crashes["Year"] == '2006' ),][,-2]
 
 #### Estimation of values for NA of 2006
 
-# 1 Option. Decision tree and estimate values
+# Decision tree and estimate values
 library(rpart)
 
 crashes2006.test <- crashes2006[which(is.na(crashes2006[,17])),-17]
@@ -398,18 +413,16 @@ d.tr <- rpart(Atmosferic_factors~., data = crashes2006.train)
 plot(d.tr, branch=0, margin=0.25, uniform=TRUE)
 text(d.tr, use.n=TRUE, splits=TRUE, pretty=6)
 predict(d.tr, crashes2006.test)
-# We'll take the highest probability (Minimun max value > .7)
+# We'll take the highest probability (Minimum max value > .7)
 predictions <- predict(d.tr, crashes2006.test, "vector")
 atmNAs2006 <- which(is.na(crashes2006[,17]))
-crashes2006$Atmosferic_factors[atmNAs2006] <- levels(crashes2[,18])[predictions]
 
-
-# We've tried estimate the values using all the data except from variable Traffic and "the 42 NA instances".
+# We've tried estimating the values using all the data except from variable Traffic and "the 42 NA instances".
 # Just one significant change. We've decided to use the 2006 prediction.
 
 #### Estimation of values for NA of 2015
 
-# 1 option: Remove Traffic + Remove NA instances
+# Remove Traffic + Remove NA instances
 
 crashes2015 <- crashes2015[,-21]
 #names(crashes2015)
@@ -422,8 +435,6 @@ crashes2015 <- crashes2015[-(which(is.na(crashes2015$Danger_signs) ==T)),]
 crashes2 <-crashes[,-22]
 crashes2 <- crashes2[-(which(is.na(crashes2$Danger_signs) ==T)),]
 
-predictions <- predict(d.tr, crashes2006.test, "vector")
-atmNAs <- which(is.na(crashes2[,18]))
 crashes2$Atmosferic_factors[atmNAs] <- levels(crashes2[,18])[predictions]
 
 #### Converting numeric attributes to categorical
@@ -440,20 +451,14 @@ crashes2[,6] <-as.factor(crashes2[,6])
 crashes2[which(crashes2[,7]>2),7]="more_than_2"
 crashes2[,7] <-as.factor(crashes2[,7])
 
-# Modification of the data observing the first attempt of the model
-
+#### Modification of the data observing the first attempt of the model
 # 1. Extreme category surface created -> new category
 library(car)
 crashes2$Surface <- recode(crashes2$Surface,"'Dry'='Dry';'Wet'='Wet';else='Extreme'")
 # 2. Surface: grouping Dusk categories -> new category (diff between 2006 and 2015)
 crashes2$Luminosity <- recode(crashes2$Luminosity,"'Artificial_enough'='Artificial_enough';'Artificial_not_enough'='Artificial_not_enough';'Daylight'='Daylight';'No_light'='No_light';else='Dusk'")
 
-
-# Subsample of data:
-# crashes2015 <- crashes2[which(crashes2["Year"] == '2015' ),][,-2]
-# crashes2006 <- crashes2[which(crashes2["Year"] == '2006' ),][,-2]
-
-# Chi-square matrix p-value
+# Variable relations: Chi-square matrix p-value
 chisqmatrix <- function(x) {
   names = colnames(x);  num = length(names)
   m = matrix(nrow=num,ncol=num,dimnames=list(names,names))
@@ -468,6 +473,7 @@ chisqmatrix <- function(x) {
 mat = chisqmatrix(crashes2)
 mat
 
+# Some frequency table observations
 table(crashes2$Type_day,crashes2$Week_day)
 table(crashes2$Surface,crashes2$Atmosferic_factors)
 table(crashes2$Num_vehicles,crashes2$Casualties)
@@ -483,7 +489,7 @@ crashes2 <- crashes2[,-c(3,5,11,14,18,21)]
 crashes2.2006 <- crashes2[which(crashes2["Year"] == '2006' ),][,-2]
 crashes2.2015 <- crashes2[which(crashes2["Year"] == '2015' ),][,-2]
 
-## Modelling the data
+#### Modelling the data
 library(bnlearn)
 library(Rgraphviz)
 library(ggplot2)
@@ -542,10 +548,6 @@ graphviz.plot(x=model2006.tabu.bic, layout="dot", shape="ellipse")
 
 # Our final model: HC.BDE  --> model2006.hc.bde
 
-# Probability estimation
-model2006.hc.bde.fitted <- bn.fit(model2006.hc.bde, data=crashes2.2006.train,method = "bayes")
-model2006.hc.bde.fitted$Surface
-
 ### Modelling (always optimized) 2015
 # 1. gs
 model2015.gs <- gs(crashes2.2015.train)
@@ -586,11 +588,7 @@ graphviz.plot(x=model2015.tabu.bic, layout="dot", shape="ellipse")
 
 # Our final model: HC.BDE  --> model2015.hc.bde
 
-# Probability estimation
-model2015.hc.bde.fitted <- bn.fit(model2015.hc.bde, data=crashes2.2015.train,method = "bayes")
-model2015.hc.bde.fitted$Surface
-
-## Generalisation and Overfitting
+### Generalisation and Overfitting
 eval_struct <- function(bn, train, test){
   n = dim(train)[1] + dim(test)[1]
   results = c()
@@ -616,33 +614,27 @@ plot(log10(sizes), plotmodel2[,1], main="Generalisation 2015",
      ylab="LL/nN", xlab="log(Size)", type="l", col="blue", ylim=c(min(plotmodel2), max(plotmodel2)))
 lines(log10(sizes),  plotmodel2[, 2], col="red")
 
+
 #### Inference
 library(gRain)
 
+# grain object
 model2006.hc.bde.grain <- grain(as(amat(model2006.hc.bde), "graphNEL"), data=crashes2.2006.train, smooth=1/dim(crashes2.2006.train)[1])
 plot(model2006.hc.bde.grain)
 # Compilation
-model2006.hc.bde.grain.moral <- moralize(model2006.hc.bde.grain$dag)
-model2006.hc.bde.grain.triang <- triangulate(model2006.hc.bde.grain.moral)
-# List of cliques
-rip(model2006.hc.bde.grain.triang)
-plot(rip(model2006.hc.bde.grain.triang))
-
-# OR
 model2006.hc.bde.compiled <- compile(model2006.hc.bde.grain)
 summary(model2006.hc.bde.compiled)
-
 # Propagate
 model2006.hc.bde.propagated <- propagate(model2006.hc.bde.compiled)
 summary(model2006.hc.bde.propagated)
 
+# Same process to 2015 data
 model2015.hc.bde.grain <- grain(as(amat(model2015.hc.bde), "graphNEL"), data=crashes2.2015.train,smooth=1/dim(crashes2.2015.train)[1])
 model2015.hc.bde.compiled <- compile(model2015.hc.bde.grain)
 model2015.hc.bde.propagated <- propagate(model2015.hc.bde.compiled)
 
-
 ### Probability estimation
-# 1)
+# 1) Marginal prob.: Conc_alcohol_durgs
 querygrain(model2006.hc.bde.propagated , nodes="Conc_alcohol_durgs", type="marginal")
 #          N          Y 
 # 0.95997981 0.04002019 
@@ -650,7 +642,7 @@ querygrain(model2015.hc.bde.propagated , nodes="Conc_alcohol_durgs", type="margi
 #          N          Y 
 # 0.97319288 0.02680712 
 
-# 2)
+# 2) Marginal prob.: Limited visibilty. Evidence: Reflectors
 querygrain(model2006.hc.bde.propagated , nodes="Limited_visibility", type="marginal")
 #         N         Y 
 # 0.2333501 0.7666499 
@@ -658,7 +650,7 @@ querygrain(model2015.hc.bde.propagated , nodes="Limited_visibility", type="margi
 #         N         Y 
 # 0.5924582 0.4075418
 
-# With reflectors?
+# With reflectors? Evidence
 model2006.hc.bde.propagated.ev2 <- setEvidence(model2006.hc.bde.propagated,nodes="Reflectors",states="Y", propagate=TRUE)
 querygrain(model2006.hc.bde.propagated.ev2 , nodes="Limited_visibility", type="marginal")
 #         N         Y 
@@ -668,9 +660,10 @@ querygrain(model2006.hc.bde.propagated.ev2 , nodes="Limited_visibility", type="m
 model2015.hc.bde.propagated.ev2 <- setEvidence(model2015.hc.bde.propagated,nodes="Reflectors",states="Y", propagate=TRUE)
 querygrain(model2015.hc.bde.propagated.ev2 , nodes="Limited_visibility", type="marginal")
 #         N         Y 
-# 0.5924582 0.4075418 The same (nodes no conected)
+# 0.5924582 0.4075418 The same (nodes no connected)
 
-# 3)
+# 3) Marginal prob.: Num_of_cars. Evidences: Distraction and Limited visibility
+# 2006 data
 model2006.hc.bde.propagated.ev3 <- setEvidence(model2006.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("Y","Y"), propagate=TRUE)
 querygrain(model2006.hc.bde.propagated.ev3 , nodes="Num_vehicles", type="marginal")
 #           1           2 more_than_2 
@@ -682,7 +675,7 @@ querygrain(model2006.hc.bde.propagated.ev4 , nodes="Num_vehicles", type="margina
 #   0.5566936   0.3195912   0.1237152 
 # Single vehicle accidents increase
 
-
+# 2015 data
 model2015.hc.bde.propagated.ev3 <- setEvidence(model2015.hc.bde.propagated,nodes=c("Limited_visibility","Conc_distraction"),states=c("Y","Y"), propagate=TRUE)
 querygrain(model2015.hc.bde.propagated.ev3 , nodes="Num_vehicles", type="marginal")
 #           1           2 more_than_2 
@@ -694,7 +687,7 @@ querygrain(model2015.hc.bde.propagated.ev4 , nodes="Num_vehicles", type="margina
 #   0.5393078   0.3587505   0.1019417 
 #  Single vehicle accidents increase
 
-# 4)
+# 4) Marginal prob.: Surface
 querygrain(model2006.hc.bde.propagated , nodes="Surface", type="marginal")
 #         Dry    Extreme        Wet 
 #  0.58332044 0.04335095 0.37332861
@@ -702,7 +695,7 @@ querygrain(model2015.hc.bde.propagated , nodes="Surface", type="marginal")
 #        Dry    Extreme        Wet 
 # 0.52657241 0.06011447 0.41331312 
 
-# 5)
+# 5) Marginal prob.: Month
 querygrain(model2006.hc.bde.propagated , nodes="Month", type="marginal")
 #         Apr        Aug        Dec        Feb        Jan        Jul 
 #  0.05000444 0.06333600 0.07666756 0.09333200 0.07333467 0.08000044 
