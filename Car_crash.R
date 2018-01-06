@@ -590,17 +590,31 @@ graphviz.plot(x=model2015.tabu.bic, layout="dot", shape="ellipse")
 model2015.hc.bde.fitted <- bn.fit(model2015.hc.bde, data=crashes2.2015.train,method = "bayes")
 model2015.hc.bde.fitted$Surface
 
-## 
-
+## Generalisation and Overfitting
 eval_struct <- function(bn, train, test){
-  gener <- stats::logLik(bn,test)/(dim(test)[2]*dim(test)[1])
-  fit <- stats::logLik(bn,train)/(dim(test)[2]*dim(train)[1])
-  return(c(gener, fit))
+  n = dim(train)[1] + dim(test)[1]
+  results = c()
+  for (size in sizes) {
+    d <- train[1:size,]
+    bnf <- bn.fit(x=bn, data=d, method = "bayes")
+    gener <- stats::logLik(bnf, test)/(n*dim(test)[1])
+    fit <- stats::logLik(bnf,d)/(n*dim(d)[1])
+    results = c(results, gener, fit)
+  }
+  return(matrix(results, ncol = 2, byrow = T))
 }
 
-plotmodel1 <-eval_struct(model2006.hc.bde.fitted,crashes2.2006.train,crashes2.2006.test)
-plotmodel1
+set.seed(937) #937
+plotmodel1 <-eval_struct(model2006.hc.bic,crashes2.2006.train,crashes2.2006.test)
+plot(log10(sizes), plotmodel1[,1], main="Generalisation", 
+     ylab="LL/nN", xlab="log(Size)", type="l", col="blue", ylim=c(min(plotmodel1), max(plotmodel1)))
+lines(log10(sizes),  plotmodel1[, 2], col="red")
 
+sizes <- round(exp(seq(1, log(150), (log(150) - 1) / 20)))
+plotmodel2 <-eval_struct(model2015.hc.bic,crashes2.2015.train,crashes2.2015.test)
+plot(log10(sizes), plotmodel2[,1], main="Generalisation", 
+     ylab="LL/nN", xlab="log(Size)", type="l", col="blue", ylim=c(min(plotmodel2), max(plotmodel2)))
+lines(log10(sizes),  plotmodel2[, 2], col="red")
 
 #### Inference
 library(gRain)
